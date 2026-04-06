@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.env.example
+npm-debug.log*
+__pycache__/
+*.pyc
+.omx/
+memoapp1/
+MT2.26.4.apk
