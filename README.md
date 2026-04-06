@@ -4,26 +4,31 @@
 
 ## 快速启动
 
-最短路径：
+最快一条命令：
 
 ```bash
-cd bili_terminal
-chmod +x start.sh
-./start.sh
+git clone https://github.com/teee32/biliterminal.git && cd biliterminal && ./biliterminal
 ```
 
-不想进目录也可以：
+已经 clone 下来之后：
 
 ```bash
-python3 -m bili_terminal tui
+./biliterminal
 ```
 
 如果想直接启动某个命令：
 
 ```bash
-./bili_terminal/start.sh recommend -n 5
-./bili_terminal/start.sh search 中文 -n 5
-./bili_terminal/start.sh comments BV19K9uBmEdx -n 3
+./biliterminal recommend -n 5
+./biliterminal search 中文 -n 5
+./biliterminal comments BV19K9uBmEdx -n 3
+```
+
+兼容方式：
+
+```bash
+python3 -m bili_terminal tui
+./bili_terminal/start.sh
 ```
 
 这个实现基于对 Bilibili 网页公开接口的逆向观察，当前覆盖 3 个核心能力：
