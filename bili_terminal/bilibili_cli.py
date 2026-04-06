@@ -1543,7 +1543,7 @@ class BilibiliTUI:
         else:
             channel_label = "搜索"
         section_line = f"当前分区 · {channel_label}"
-        stdscr.addnstr(y + 3, centered_x(width, section_line, 2), section_line, width - 4, self.attr_muted())
+        stdscr.addnstr(y + 3, centered_x(width, section_line, 2), section_line, width - 4, self.attr_accent())
         hot_words = " · ".join(self.trending_keywords_cache[:3]) if self.trending_keywords_cache else "热点内容 · 分区导航 · 精选视频"
         subline = f"热搜：{truncate_display(hot_words, max(16, width - 12))}"
         stdscr.addnstr(y + 4, centered_x(width, subline, 2), subline, width - 4, self.attr_muted())
@@ -1831,18 +1831,22 @@ class BilibiliTUI:
         stdscr.addnstr(0, 0, header, width - 1, self.attr_header())
         right_x = max(0, width - display_width(header_right) - 1)
         stdscr.addnstr(0, right_x, header_right, width - right_x - 1, self.attr_header())
-        mode_line = "[首页流]  [搜索]  [历史记录]  [收藏夹]"
-        stdscr.addnstr(1, 0, mode_line, width - 1, self.attr_muted())
-        active_marker_map = {
-            "hot": "[首页流]",
-            "search": "[搜索]",
-            "history": "[历史记录]",
-            "favorites": "[收藏夹]",
-        }
-        active_marker = active_marker_map.get(self.mode, "[首页流]")
-        marker_x = mode_line.find(active_marker)
-        if marker_x >= 0:
-            stdscr.addnstr(1, marker_x, active_marker, len(active_marker), self.attr_accent())
+        stdscr.addnstr(1, 0, " " * max(1, width - 1), width - 1, self.attr_muted())
+        tabs = [
+            ("首页流", "hot"),
+            ("搜索", "search"),
+            ("历史记录", "history"),
+            ("收藏夹", "favorites"),
+        ]
+        tab_x = 0
+        for label, mode in tabs:
+            chip = f"[{label}]"
+            chip_width = display_width(chip)
+            if tab_x + chip_width >= width - 1:
+                break
+            attr = self.attr_accent() if self.mode == mode else self.attr_muted()
+            stdscr.addnstr(1, tab_x, chip, chip_width, attr)
+            tab_x += chip_width + 2
         if self.mode == "search" and self.keyword:
             search_hint = f"当前搜索：{truncate_display(self.keyword, max(10, width // 4))}"
         elif self.mode == "history":
@@ -1923,7 +1927,7 @@ class BilibiliTUI:
         self.clamp_detail_scroll(width - 4, content_height - 4)
         visible_lines = detail_lines[self.detail_scroll : self.detail_scroll + content_height - 4]
         for offset, line in enumerate(visible_lines):
-            attr = self.attr_accent() if line == "简介:" else (self.attr_muted() if ":" in line and offset < 10 else 0)
+            attr = self.attr_accent() if "简介:" in line else (self.attr_muted() if ":" in line and offset < 10 else 0)
             stdscr.addnstr(content_top + 2 + offset, 2, line, width - 4, attr)
         footer = f"滚动 {self.detail_scroll + 1}-{self.detail_scroll + len(visible_lines)} / {len(detail_lines)}"
         stdscr.addnstr(content_top + content_height - 2, 2, footer, width - 4, self.attr_muted())
