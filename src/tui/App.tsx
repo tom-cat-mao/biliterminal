@@ -58,6 +58,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const forceCommentsOnNextLoad = useRef(false);
   const selectedIndexRef = useRef(selectedIndex);
   const loadRequestIdRef = useRef(0);
+  const commentRequestIdRef = useRef(new Map<string, number>());
 
   const selectedItem = items[selectedIndex] ?? null;
   const selectedKey = keyOf(selectedItem);
@@ -136,8 +137,14 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
         return { status: "skipped", itemKey };
       }
 
+      const requestId = (commentRequestIdRef.current.get(itemKey) ?? 0) + 1;
+      commentRequestIdRef.current.set(itemKey, requestId);
+
       try {
         const loadedComments = await client.comments(aid, 4, refererBvid);
+        if (commentRequestIdRef.current.get(itemKey) !== requestId) {
+          return { status: "loaded", itemKey, comments: commentCache[itemKey] ?? [] };
+        }
         setCommentCache((prev) => ({ ...prev, [itemKey]: loadedComments }));
         setCommentLoaded((prev) => ({ ...prev, [itemKey]: true }));
         setCommentErrors((prev) => {
@@ -148,6 +155,9 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
         return { status: "loaded", itemKey, comments: loadedComments };
       } catch (error) {
         const message = (error as Error).message;
+        if (commentRequestIdRef.current.get(itemKey) !== requestId) {
+          return { status: "error", itemKey, error: message };
+        }
         setCommentCache((prev) => ({ ...prev, [itemKey]: [] }));
         setCommentLoaded((prev) => {
           const next = { ...prev };

@@ -62,6 +62,16 @@ async function waitForAssertion(assertion: () => void, timeout = 2000): Promise<
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("tui/App", () => {
   let tempDir: string;
 
@@ -214,5 +224,77 @@ describe("tui/App", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(recommendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("快速切换首页分区时，过期列表请求不应覆盖最新结果", async () => {
+    const recommendDeferred = createDeferred<ReturnType<typeof makeVideoItem>[]>();
+    const client = createClient({
+      recommend: vi.fn().mockImplementation(() => recommendDeferred.promise),
+      popular: vi.fn().mockResolvedValue([
+        makeVideoItem({ title: "热门视频 A", bvid: "BV1cd411c7mu", aid: 108, url: "https://www.bilibili.com/video/BV1cd411c7mu" }),
+      ]),
+    });
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(client.recommend).toHaveBeenCalledTimes(1);
+    });
+
+    app.stdin.write("\t");
+
+    await waitForAssertion(() => {
+      expect(client.popular).toHaveBeenCalledWith(1, 2);
+      expect(app.lastFrame()).toContain("热门视频 A");
+      expect(app.lastFrame()).toContain("分区: 热门");
+    });
+
+    recommendDeferred.resolve([
+      makeVideoItem({ title: "过期推荐", bvid: "BV1old11c7mu", aid: 120, description: "旧结果" }),
+    ]);
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(app.lastFrame()).toContain("热门视频 A");
+    expect(app.lastFrame()).not.toContain("过期推荐");
+  });
+
+  it("连续刷新评论时，过期评论响应不应覆盖最新结果", async () => {
+    const oldComments = createDeferred<CommentItem[]>();
+    const newComments = createDeferred<CommentItem[]>();
+    const commentsMock = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockImplementationOnce(() => oldComments.promise)
+      .mockImplementationOnce(() => newComments.promise);
+    const client = createClient({ comments: commentsMock });
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(commentsMock).toHaveBeenCalledTimes(1);
+      expect(app.lastFrame()).toContain("当前视频暂无可显示热评");
+    });
+
+    app.stdin.write("c");
+    app.stdin.write("c");
+
+    await waitForAssertion(() => {
+      expect(commentsMock).toHaveBeenCalledTimes(3);
+    });
+
+    newComments.resolve([{ author: "最新评论", message: "新的评论结果", like: 9, ctime: 1_710_000_010 } satisfies CommentItem]);
+
+    await waitForAssertion(() => {
+      expect(app.lastFrame()).toContain("最新评论");
+      expect(app.lastFrame()).toContain("新的评论结果");
+    });
+
+    oldComments.resolve([{ author: "旧评论", message: "过期评论结果", like: 1, ctime: 1_710_000_000 } satisfies CommentItem]);
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(app.lastFrame()).toContain("最新评论");
+    expect(app.lastFrame()).not.toContain("过期评论结果");
   });
 });
