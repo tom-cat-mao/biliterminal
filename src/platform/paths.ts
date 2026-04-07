@@ -11,8 +11,8 @@ export interface PathResolutionOptions {
   isWritable?: (targetPath: string) => boolean;
 }
 
-function pathApiFor(platformName: NodeJS.Platform | undefined): typeof path {
-  return platformName === "win32" ? path.win32 : path;
+function pathApiFor(platformName: NodeJS.Platform | undefined): typeof path.posix | typeof path.win32 {
+  return platformName === "win32" ? path.win32 : path.posix;
 }
 
 function runtimeHomeDir(options: PathResolutionOptions): string | undefined {

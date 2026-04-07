@@ -75,31 +75,23 @@ describe("tui/App", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it("支持进入详情页并返回列表", async () => {
-    const client = createClient();
+  it("首个视频缺少 aid 时会自动补拉详情并加载评论", async () => {
+    const commentsMock = vi.fn().mockResolvedValue([{ author: "自动评论", message: "自动补拉成功", like: 7, ctime: 1_710_000_002 } satisfies CommentItem]);
+    const client = createClient({
+      recommend: vi.fn().mockResolvedValue([
+        makeVideoItem({ title: "推荐视频 A", bvid: "BV1xx411c7mu", aid: null, description: "推荐简介 A" }),
+        makeVideoItem({ title: "推荐视频 B", bvid: "BV1ab411c7mu", aid: 107, url: "https://www.bilibili.com/video/BV1ab411c7mu" }),
+      ]),
+      comments: commentsMock,
+    });
     const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
     const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
 
     await waitForAssertion(() => {
       expect(client.recommend).toHaveBeenCalledWith(1, 2);
-      expect(app.lastFrame()).toContain("推荐视频 A");
-    });
-
-    app.stdin.write("\r");
-    app.stdin.write("\n");
-    app.stdin.write("\u001B[C");
-
-    await waitForAssertion(() => {
       expect(client.video).toHaveBeenCalledWith("BV1xx411c7mu");
-      expect(app.lastFrame()).toContain("详情页");
-      expect(app.lastFrame()).toContain("详情简介");
-    });
-
-    app.stdin.write("b");
-
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("列表 · 2 条");
-      expect(app.lastFrame()).toContain("已返回列表");
+      expect(commentsMock).toHaveBeenCalledWith(106, 4, "BV1xx411c7mu");
+      expect(app.lastFrame()).toContain("自动评论");
     });
   });
 
