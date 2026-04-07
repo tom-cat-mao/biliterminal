@@ -59,7 +59,6 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const commentCacheRef = useRef<Record<string, CommentItem[]>>({});
   const commentErrorsRef = useRef<Record<string, string>>({});
   const selectedIndexRef = useRef(selectedIndex);
-  const selectedKeyRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
   const commentRequestIdRef = useRef(new Map<string, number>());
   const detailRequestIdRef = useRef(0);
@@ -85,9 +84,9 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     selectedIndexRef.current = selectedIndex;
   }, [selectedIndex]);
 
-  useEffect(() => {
-    selectedKeyRef.current = selectedKey;
-  }, [selectedKey]);
+  const invalidatePendingDetail = useCallback(() => {
+    detailRequestIdRef.current += 1;
+  }, []);
 
   const currentCommentResult = useCallback((itemKey: string): CommentLoadResult => {
     if (itemKey in commentErrorsRef.current) {
@@ -345,7 +344,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     try {
       const requestId = ++detailRequestIdRef.current;
       const loaded = await client.video(itemKey);
-      if (detailRequestIdRef.current !== requestId || selectedKeyRef.current !== itemKey) {
+      if (detailRequestIdRef.current !== requestId) {
         return;
       }
       historyStore.addVideo(loaded);
@@ -372,6 +371,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   }, [historyStore, pushCurrentState]);
 
   const restorePreviousState = useCallback(() => {
+    invalidatePendingDetail();
     const result = popListState(listStack);
     const restored = result.state;
     setListStack(result.stack);
@@ -387,17 +387,18 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     setDetailMode(false);
     setDetailScroll(0);
     setStatus(`已返回: ${restored.mode === "search" ? restored.keyword : modeToken(false, restored.mode, HOME_CHANNELS, restored.channelIndex)}`);
-  }, [listStack]);
+  }, [invalidatePendingDetail, listStack]);
 
   const switchMode = useCallback(
     (nextMode: AppMode, nextPage = 1, nextKeyword = keyword) => {
+      invalidatePendingDetail();
       pushCurrentState();
       setMode(nextMode);
       setPage(nextPage);
       setKeyword(nextKeyword);
       setSelectedIndex(0);
     },
-    [keyword, pushCurrentState],
+    [invalidatePendingDetail, keyword, pushCurrentState],
   );
 
   const triggerDefaultSearch = useCallback(async () => {
@@ -421,6 +422,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
 
   const cycleChannel = useCallback(
     (step: number) => {
+      invalidatePendingDetail();
       const nextIndex = (channelIndex + step + HOME_CHANNELS.length) % HOME_CHANNELS.length;
       if (mode !== "hot") {
         setChannelIndex(nextIndex);
@@ -432,11 +434,12 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
       setPage(1);
       setSelectedIndex(0);
     },
-    [channelIndex, keyword, mode, pushCurrentState, switchMode],
+    [channelIndex, invalidatePendingDetail, keyword, mode, pushCurrentState, switchMode],
   );
 
   const setChannelDirect = useCallback(
     (index: number) => {
+      invalidatePendingDetail();
       const nextIndex = Math.max(0, Math.min(index, HOME_CHANNELS.length - 1));
       if (mode !== "hot") {
         setChannelIndex(nextIndex);
@@ -448,7 +451,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
       setPage(1);
       setSelectedIndex(0);
     },
-    [keyword, mode, pushCurrentState, switchMode],
+    [invalidatePendingDetail, keyword, mode, pushCurrentState, switchMode],
   );
 
   useInput((input, key) => {
@@ -521,10 +524,13 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     if (input === "q") {
       exit();
     } else if (input === "?") {
+      invalidatePendingDetail();
       setShowHelp(true);
     } else if (key.upArrow || input === "k") {
+      invalidatePendingDetail();
       setSelectedIndex((prev) => clampSelection(prev - 1, items.length));
     } else if (key.downArrow || input === "j") {
+      invalidatePendingDetail();
       setSelectedIndex((prev) => clampSelection(prev + 1, items.length));
     } else if (input === "b") {
       restorePreviousState();
@@ -535,16 +541,21 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     } else if (/^[1-9]$/.test(input)) {
       setChannelDirect(Number(input) - 1);
     } else if (input === "g") {
+      invalidatePendingDetail();
       setSelectedIndex(0);
     } else if (input === "G") {
+      invalidatePendingDetail();
       setSelectedIndex(Math.max(0, items.length - 1));
     } else if (key.return || key.rightArrow) {
       void loadSelectedDetail();
     } else if (input === "o") {
+      invalidatePendingDetail();
       void openSelected();
     } else if (input === "r") {
+      invalidatePendingDetail();
       void refreshCurrentView();
     } else if (input === "c") {
+      invalidatePendingDetail();
       void refreshComments();
     } else if (input === "h") {
       switchMode("hot");
@@ -553,14 +564,18 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     } else if (input === "m") {
       switchMode("favorites");
     } else if (input === "f") {
+      invalidatePendingDetail();
       toggleSelectedFavorite();
     } else if (input === "l") {
+      invalidatePendingDetail();
       rerunLastSearch();
     } else if (input === "d") {
       void triggerDefaultSearch();
     } else if (input === "/" || input === "s") {
+      invalidatePendingDetail();
       setPromptState({ prompt: "搜索关键词: ", value: mode === "search" ? keyword : "" });
     } else if (input === "n" || key.pageDown) {
+      invalidatePendingDetail();
       if (mode === "history" || mode === "favorites") {
         setStatus("当前列表没有分页");
       } else {
@@ -569,6 +584,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
         setSelectedIndex(0);
       }
     } else if (input === "p" || key.pageUp) {
+      invalidatePendingDetail();
       if (mode === "history" || mode === "favorites") {
         setStatus("当前列表没有分页");
       } else if (page > 1) {
