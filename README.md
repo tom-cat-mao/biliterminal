@@ -279,6 +279,10 @@ bilibili-cli-history.json
 - 跨平台收口策略
 - 最终验收链路
 
+如果要直接查看“原版 Python 功能 / 接口 和当前 TS 主线”的一一对应关系，可继续阅读：
+
+- `docs/python-ts-parity-mapping.md`
+
 ## 说明
 
 - CLI 与 TUI 会为接口补齐浏览器请求头，降低被风控 412 的概率。
@@ -286,7 +290,7 @@ bilibili-cli-history.json
 - 当前 TS 主线已经具备类型检查、自动测试、构建、smoke、CI、跨平台路径适配和多包管理器兼容验证。
 - `doctor:full` 默认验证 Node 主线 smoke，不再依赖 Python。
 - `legacy/python/` 下的 Python 代码保留为 archive/reference，用于行为回溯，不再作为 fallback runtime。
-- `ace` 语义检索如果返回 `401 Unauthorized - Invalid token`，说明当前会话的 ace 授权有问题，不影响本地代码重构主线，但会影响语义搜索效率。
+- `ace` 语义检索在当前会话里可能不可用；最近一次实测返回 `404 Not Found`。这不影响本地代码重构主线，但会影响语义搜索效率。
 
 ## 致谢
 
