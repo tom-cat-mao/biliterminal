@@ -27,10 +27,14 @@ function expandHome(value: string, homeDir: string | undefined): string {
   return value.replace(/^~(?=$|[\\/])/, homeDir);
 }
 
+function normalizeForPathApi(value: string, pathApi: typeof path.posix | typeof path.win32): string {
+  return pathApi === path.win32 ? value.replace(/\//g, "\\") : value.replace(/\\/g, "/");
+}
+
 function resolveInputPath(value: string, options: PathResolutionOptions): string {
   const pathApi = pathApiFor(options.platform);
-  const cwd = options.cwd ?? process.cwd();
-  const expanded = expandHome(value, runtimeHomeDir(options));
+  const cwd = normalizeForPathApi(options.cwd ?? process.cwd(), pathApi);
+  const expanded = normalizeForPathApi(expandHome(value, runtimeHomeDir(options)), pathApi);
   return pathApi.isAbsolute(expanded) ? pathApi.normalize(expanded) : pathApi.resolve(cwd, expanded);
 }
 
@@ -52,12 +56,15 @@ function isWritableTarget(targetPath: string): boolean {
 }
 
 function looksLikeProjectRoot(cwd: string): boolean {
-  return fs.existsSync(path.join(cwd, ".git")) || (fs.existsSync(path.join(cwd, "package.json")) && (fs.existsSync(path.join(cwd, "src")) || fs.existsSync(path.join(cwd, "bili_terminal"))));
+  return (
+    fs.existsSync(path.join(cwd, ".git")) ||
+    (fs.existsSync(path.join(cwd, "package.json")) && (fs.existsSync(path.join(cwd, "src")) || fs.existsSync(path.join(cwd, "bili_terminal"))))
+  );
 }
 
 export function legacyStateDir(options: PathResolutionOptions = {}): string {
   const pathApi = pathApiFor(options.platform);
-  const cwd = options.cwd ?? process.cwd();
+  const cwd = normalizeForPathApi(options.cwd ?? process.cwd(), pathApi);
   return pathApi.join(cwd, ...DEFAULT_STATE_DIR.split(/[\\/]+/));
 }
 
@@ -73,20 +80,20 @@ export function platformStateDir(options: PathResolutionOptions = {}): string | 
       return pathApi.join(resolveInputPath(appData, options), "BiliTerminal", "state");
     }
     if (homeDir) {
-      return pathApi.join(homeDir, "AppData", "Roaming", "BiliTerminal", "state");
+      return pathApi.join(normalizeForPathApi(homeDir, pathApi), "AppData", "Roaming", "BiliTerminal", "state");
     }
     return null;
   }
 
   if (platformName === "darwin") {
-    return homeDir ? pathApi.join(homeDir, "Library", "Application Support", "BiliTerminal", "state") : null;
+    return homeDir ? pathApi.join(normalizeForPathApi(homeDir, pathApi), "Library", "Application Support", "BiliTerminal", "state") : null;
   }
 
   const xdgStateHome = env.XDG_STATE_HOME?.trim() || env.XDG_DATA_HOME?.trim();
   if (xdgStateHome) {
     return pathApi.join(resolveInputPath(xdgStateHome, options), "biliterminal");
   }
-  return homeDir ? pathApi.join(homeDir, ".local", "state", "biliterminal") : null;
+  return homeDir ? pathApi.join(normalizeForPathApi(homeDir, pathApi), ".local", "state", "biliterminal") : null;
 }
 
 export function defaultStateDir(options: PathResolutionOptions = {}): string {

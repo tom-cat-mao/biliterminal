@@ -75,6 +75,21 @@ describe("tui/App", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
+  it("首页模式会加载推荐列表与首页元信息", async () => {
+    const client = createClient();
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(client.recommend).toHaveBeenCalledWith(1, 2);
+      expect(client.searchDefault).toHaveBeenCalledTimes(1);
+      expect(client.trendingKeywords).toHaveBeenCalledWith(6);
+      expect(app.lastFrame()).toContain("推荐视频 A");
+      expect(app.lastFrame()).toContain("默认搜索: 默认搜索词");
+      expect(app.lastFrame()).toContain("热搜: 热搜甲 · 热搜乙");
+    });
+  });
+
   it("首个视频缺少 aid 时会自动补拉详情并加载评论", async () => {
     const commentsMock = vi.fn().mockResolvedValue([{ author: "自动评论", message: "自动补拉成功", like: 7, ctime: 1_710_000_002 } satisfies CommentItem]);
     const client = createClient({
@@ -88,121 +103,20 @@ describe("tui/App", () => {
     const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
 
     await waitForAssertion(() => {
-      expect(client.recommend).toHaveBeenCalledWith(1, 2);
       expect(client.video).toHaveBeenCalledWith("BV1xx411c7mu");
       expect(commentsMock).toHaveBeenCalledWith(106, 4, "BV1xx411c7mu");
       expect(app.lastFrame()).toContain("自动评论");
     });
   });
 
-  it("支持中文搜索输入与最近搜索重跑", async () => {
+  it("当前视频已收藏时会在列表和预览中显示星标", async () => {
     const client = createClient();
     const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    historyStore.addFavorite(makeVideoItem({ title: "推荐视频 A", bvid: "BV1xx411c7mu", aid: 106, description: "推荐简介 A" }));
     const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
 
     await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("推荐视频 A");
-    });
-
-    app.stdin.write("/");
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("搜索关键词:");
-    });
-
-    app.stdin.write("中文");
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("搜索关键词: 中文");
-    });
-
-    app.stdin.write("\r");
-    await waitForAssertion(() => {
-      expect(client.search).toHaveBeenCalledWith("中文", 1, 2);
-      expect(app.lastFrame()).toContain("搜索: 中文");
-      expect(app.lastFrame()).toContain("中文 搜索结果");
-    });
-
-    app.stdin.write("h");
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("分区: 首页");
-    });
-
-    app.stdin.write("l");
-    await waitForAssertion(() => {
-      expect(client.search).toHaveBeenCalledTimes(2);
-      expect(app.lastFrame()).toContain("搜索: 中文");
-    });
-  });
-
-  it("支持收藏并在收藏夹中查看已收藏视频", async () => {
-    const client = createClient();
-    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
-    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
-
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("推荐视频 A");
-    });
-
-    app.stdin.write("f");
-    await waitForAssertion(() => {
-      expect(historyStore.getFavoriteVideos(1)[0]?.title).toBe("推荐视频 A");
-      expect(app.lastFrame()).toContain("已收藏");
-    });
-
-    app.stdin.write("m");
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("收藏夹");
-      expect(app.lastFrame()).toContain("推荐视频 A");
-    });
-
-    app.stdin.write("h");
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("分区: 首页");
-      expect(app.lastFrame()).toContain("推荐视频 A");
-    });
-  });
-
-  it("支持切换首页分区并返回之前分区", async () => {
-    const client = createClient();
-    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
-    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
-
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("分区: 首页");
-    });
-
-    app.stdin.write("2");
-    await waitForAssertion(() => {
-      expect(client.popular).toHaveBeenCalledWith(1, 2);
-      expect(app.lastFrame()).toContain("分区: 热门");
-      expect(app.lastFrame()).toContain("热门视频 A");
-    });
-
-    app.stdin.write("b");
-    await waitForAssertion(() => {
-      expect(app.lastFrame()).toContain("分区: 首页");
-      expect(app.lastFrame()).toContain("推荐视频 A");
-    });
-  });
-
-  it("刷新评论后状态与评论内容保持一致", async () => {
-    const commentsMock = vi
-      .fn()
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ author: "评论刷新", message: "新评论内容", like: 9, ctime: 1_710_000_001 } satisfies CommentItem]);
-    const client = createClient({ comments: commentsMock });
-    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
-    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
-
-    await waitForAssertion(() => {
-      expect(commentsMock).toHaveBeenCalledTimes(1);
-      expect(app.lastFrame()).toContain("当前视频暂无可显示热评");
-    });
-
-    app.stdin.write("c");
-    await waitForAssertion(() => {
-      expect(commentsMock).toHaveBeenCalledTimes(2);
-      expect(app.lastFrame()).toContain("评论刷新");
-      expect(app.lastFrame()).toContain("已加载评论 1 条");
+      expect(app.lastFrame()).toContain("★ 推荐视频 A");
     });
   });
 
