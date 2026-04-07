@@ -56,6 +56,8 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const [reloadToken, setReloadToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const forceCommentsOnNextLoad = useRef(false);
+  const commentCacheRef = useRef<Record<string, CommentItem[]>>({});
+  const commentErrorsRef = useRef<Record<string, string>>({});
   const selectedIndexRef = useRef(selectedIndex);
   const selectedKeyRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
@@ -86,6 +88,16 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   useEffect(() => {
     selectedKeyRef.current = selectedKey;
   }, [selectedKey]);
+
+  const currentCommentResult = useCallback((itemKey: string): CommentLoadResult => {
+    if (itemKey in commentErrorsRef.current) {
+      return { status: "error", itemKey, error: commentErrorsRef.current[itemKey] };
+    }
+    if (itemKey in commentCacheRef.current) {
+      return { status: "loaded", itemKey, comments: commentCacheRef.current[itemKey] ?? [] };
+    }
+    return { status: "skipped", itemKey };
+  }, []);
 
   const refreshHomeMeta = useCallback(
     async (force = false) => {
@@ -149,8 +161,12 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
       try {
         const loadedComments = await client.comments(aid, 4, refererBvid);
         if (commentRequestIdRef.current.get(itemKey) !== requestId) {
-          return { status: "loaded", itemKey, comments: commentCache[itemKey] ?? [] };
+          return currentCommentResult(itemKey);
         }
+        commentCacheRef.current = { ...commentCacheRef.current, [itemKey]: loadedComments };
+        const nextErrors = { ...commentErrorsRef.current };
+        delete nextErrors[itemKey];
+        commentErrorsRef.current = nextErrors;
         setCommentCache((prev) => ({ ...prev, [itemKey]: loadedComments }));
         setCommentLoaded((prev) => ({ ...prev, [itemKey]: true }));
         setCommentErrors((prev) => {
@@ -162,8 +178,10 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
       } catch (error) {
         const message = (error as Error).message;
         if (commentRequestIdRef.current.get(itemKey) !== requestId) {
-          return { status: "error", itemKey, error: message };
+          return currentCommentResult(itemKey);
         }
+        commentCacheRef.current = { ...commentCacheRef.current, [itemKey]: [] };
+        commentErrorsRef.current = { ...commentErrorsRef.current, [itemKey]: message };
         setCommentCache((prev) => ({ ...prev, [itemKey]: [] }));
         setCommentLoaded((prev) => {
           const next = { ...prev };
@@ -174,7 +192,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
         return { status: "error", itemKey, error: message };
       }
     },
-    [commentCache, commentErrors, detailCache, client],
+    [client, commentCache, commentErrors, currentCommentResult, detailCache],
   );
 
   const ensureCommentsForSelected = useCallback(

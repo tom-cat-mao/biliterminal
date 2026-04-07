@@ -288,6 +288,7 @@ describe("tui/App", () => {
     await waitForAssertion(() => {
       expect(app.lastFrame()).toContain("最新评论");
       expect(app.lastFrame()).toContain("新的评论结果");
+      expect(app.lastFrame()).toContain("状态: 已加载评论 1 条");
     });
 
     oldComments.resolve([{ author: "旧评论", message: "过期评论结果", like: 1, ctime: 1_710_000_000 } satisfies CommentItem]);
@@ -296,6 +297,7 @@ describe("tui/App", () => {
 
     expect(app.lastFrame()).toContain("最新评论");
     expect(app.lastFrame()).not.toContain("过期评论结果");
+    expect(app.lastFrame()).toContain("状态: 已加载评论 1 条");
   });
 
   it("详情加载未完成时切换选中项，过期详情响应不应强行进入详情页", async () => {
