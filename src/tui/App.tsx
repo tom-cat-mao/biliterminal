@@ -56,6 +56,8 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const [reloadToken, setReloadToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const forceCommentsOnNextLoad = useRef(false);
+  const selectedIndexRef = useRef(selectedIndex);
+  const loadRequestIdRef = useRef(0);
 
   const selectedItem = items[selectedIndex] ?? null;
   const selectedKey = keyOf(selectedItem);
@@ -73,6 +75,10 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const pushCurrentState = useCallback(() => {
     setListStack((prev) => pushListState(prev, currentListState));
   }, [currentListState]);
+
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
 
   const refreshHomeMeta = useCallback(
     async (force = false) => {
@@ -160,8 +166,24 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     [ensureCommentsForItem, items, selectedIndex],
   );
 
-  const loadItems = useCallback(
-    async (options: { forceComments?: boolean } = {}) => {
+  const refreshHomeMetaRef = useRef(refreshHomeMeta);
+  const ensureCommentsForItemRef = useRef(ensureCommentsForItem);
+
+  useEffect(() => {
+    refreshHomeMetaRef.current = refreshHomeMeta;
+  }, [refreshHomeMeta]);
+
+  useEffect(() => {
+    ensureCommentsForItemRef.current = ensureCommentsForItem;
+  }, [ensureCommentsForItem]);
+
+  useEffect(() => {
+    const forceComments = forceCommentsOnNextLoad.current;
+    forceCommentsOnNextLoad.current = false;
+    const requestId = ++loadRequestIdRef.current;
+    let disposed = false;
+
+    const run = async () => {
       setLoading(true);
       try {
         let nextItems: VideoItem[] = [];
@@ -172,7 +194,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
         } else if (mode === "favorites") {
           nextItems = historyStore.getFavoriteVideos(limit);
         } else {
-          await refreshHomeMeta();
+          await refreshHomeMetaRef.current();
           const channel = HOME_CHANNELS[channelIndex];
           if (channel.source === "recommend") {
             nextItems = await client.recommend(page, limit);
@@ -184,31 +206,44 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
             nextItems = await client.regionRanking(channel.rid ?? 1, 3, page, limit);
           }
         }
-        const nextSelectedIndex = clampSelection(selectedIndex, nextItems.length);
+
+        if (disposed || requestId !== loadRequestIdRef.current) {
+          return;
+        }
+
+        const nextSelectedIndex = clampSelection(selectedIndexRef.current, nextItems.length);
         setItems(nextItems);
         setSelectedIndex(nextSelectedIndex);
         setDetailMode(false);
         setDetailScroll(0);
-        if (options.forceComments) {
-          await ensureCommentsForItem(nextItems[nextSelectedIndex], true);
+
+        if (forceComments) {
+          await ensureCommentsForItemRef.current(nextItems[nextSelectedIndex], true);
+          if (disposed || requestId !== loadRequestIdRef.current) {
+            return;
+          }
         }
+
         setStatus(`已加载 ${nextItems.length} 条结果`);
       } catch (error) {
+        if (disposed || requestId !== loadRequestIdRef.current) {
+          return;
+        }
         setItems([]);
         setSelectedIndex(0);
         setStatus(`错误: ${(error as Error).message}`);
       } finally {
-        setLoading(false);
+        if (!disposed && requestId === loadRequestIdRef.current) {
+          setLoading(false);
+        }
       }
-    },
-    [client, historyStore, keyword, limit, mode, page, channelIndex, refreshHomeMeta, selectedIndex, ensureCommentsForItem],
-  );
+    };
 
-  useEffect(() => {
-    const forceComments = forceCommentsOnNextLoad.current;
-    forceCommentsOnNextLoad.current = false;
-    void loadItems({ forceComments });
-  }, [loadItems, reloadToken]);
+    void run();
+    return () => {
+      disposed = true;
+    };
+  }, [channelIndex, client, historyStore, keyword, limit, mode, page, reloadToken]);
 
   useEffect(() => {
     void ensureCommentsForSelected(false);

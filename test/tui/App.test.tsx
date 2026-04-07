@@ -180,4 +180,39 @@ describe("tui/App", () => {
       expect(app.lastFrame()).toContain("按 o 在浏览器查看完整评论");
     });
   });
+
+  it("按 j/k 移动选中项时不应重新拉取整个列表", async () => {
+    const recommendMock = vi.fn().mockResolvedValue([
+      makeVideoItem({ title: "推荐视频 A", bvid: "BV1xx411c7mu", aid: 106, description: "推荐简介 A" }),
+      makeVideoItem({ title: "推荐视频 B", bvid: "BV1ab411c7mu", aid: 107, description: "推荐简介 B", url: "https://www.bilibili.com/video/BV1ab411c7mu" }),
+    ]);
+    const client = createClient({ recommend: recommendMock });
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(app.lastFrame()).toContain("编号 BV1xx411c7mu");
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(recommendMock).toHaveBeenCalledTimes(1);
+
+    app.stdin.write("j");
+
+    await waitForAssertion(() => {
+      expect(app.lastFrame()).toContain("编号 BV1ab411c7mu");
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(recommendMock).toHaveBeenCalledTimes(1);
+
+    app.stdin.write("k");
+
+    await waitForAssertion(() => {
+      expect(app.lastFrame()).toContain("编号 BV1xx411c7mu");
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(recommendMock).toHaveBeenCalledTimes(1);
+  });
 });
