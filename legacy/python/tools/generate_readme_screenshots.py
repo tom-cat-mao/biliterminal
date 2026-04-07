@@ -15,7 +15,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
+LEGACY_ROOT = ROOT / "legacy" / "python"
 ASSETS_DIR = ROOT / "assets" / "readme"
 
 ANSI_RE = re.compile(r"\x1b\[([0-9;]*)m")
@@ -174,7 +175,7 @@ def try_kill_session(session: str) -> None:
 
 def capture_scenario(scenario: Scenario) -> str:
     try_kill_session(scenario.session)
-    command = f"cd {ROOT} && python3 -m bili_terminal tui"
+    command = f"cd {LEGACY_ROOT} && python3 -m bili_terminal tui"
     run_tmux(
         "new-session",
         "-d",

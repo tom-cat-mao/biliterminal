@@ -19,7 +19,7 @@
 - `doctor:full` 已切换为 Node 主线 smoke，不再依赖 Python baseline
 - GitHub Actions 三平台矩阵已实跑通过
 - macOS `launch.command` 与 `.app` 打包 payload 已切到 Node + TS
-- Python 代码仍保留在 `bili_terminal/`，但只作为参考实现与历史存档
+- Python 代码已归档到 `legacy/python/`，但只作为参考实现与历史存档
 
 当前已经验证通过的命令：
 
@@ -44,8 +44,7 @@ printf 'exit\n' | node dist/index.js
 
 当前明确存在的非阻塞缺口：
 
-- `ace` 语义检索在当前会话返回 `401 Unauthorized - Invalid token`
-- Python 参考实现尚未归档迁出，但已经退出主运行链 / 主测试链 / 主打包链
+- `ace` 语义检索在当前会话不可用，当前实测返回 `404 Not Found`
 
 ## 2. 总目标
 
@@ -90,13 +89,13 @@ printf 'exit\n' | node dist/index.js
                  ┌────────────────────┐
                  │ 启动入口层         │
                  │ biliterminal       │
-                 │ bili_terminal/...  │
+                 │ bili_terminal/     │
                  └─────────┬──────────┘
                            │
         ┌──────────────────┼──────────────────┐
         │                  │                  │
         ▼                  ▼                  ▼
-   dist/index.js     tsx 直接运行       Python archive
+   dist/index.js     tsx 直接运行       legacy/python
                            │
                            ▼
                  ┌────────────────────┐
@@ -175,7 +174,7 @@ printf 'exit\n' | node dist/index.js
 - `vitest.config.ts`
 - 对应阶段涉及的 `src/**` 文件
 - 对应阶段涉及的 `test/**` 文件
-- 必要时对照 `bili_terminal/**` Python 参考实现
+- 必要时对照 `legacy/python/**` Python 参考实现
 
 如果遇到依赖类型、框架行为或平台差异不清晰，再补充官方文档检索。
 
@@ -294,7 +293,7 @@ pnpm run test:core
 pnpm run test:storage
 pnpm run test:api
 pnpm run test:cli
-python3 -m unittest discover -s bili_terminal/tests -v
+cd legacy/python && python3 -m unittest discover -s tests -v
 ```
 
 ### 阶段通过标准
@@ -441,7 +440,7 @@ bun run typecheck && bun run test && bun run build
 
 - 更新 `README.md`
 - 明确主线启动方式是 TS
-- 明确 Python 的定位为参考实现 / fallback
+- 明确 Python 的定位为参考实现 / archive
 - 补充：
   - 环境要求
   - 包管理器兼容说明

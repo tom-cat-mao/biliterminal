@@ -6,7 +6,7 @@
 
 - **唯一主运行时**：`src/` 下的 TypeScript + Ink
 - **推荐启动方式**：直接运行 `./biliterminal`
-- **归档参考实现**：`bili_terminal/` 下的 Python 代码仅保留为历史参考，不再参与主运行链、主测试链与主打包链
+- **归档参考实现**：`legacy/python/` 下的 Python 代码仅保留为历史参考，不再参与主运行链、主测试链与主打包链
 
 ## 快速开始
 
@@ -153,11 +153,12 @@ pnpm run test:tui
 ```bash
 pnpm run legacy:python-baseline
 # 或
-python3 -m unittest discover -s bili_terminal/tests -v
+cd legacy/python && python3 -m unittest discover -s tests -v
 ```
 
 说明：
 
+- `pnpm run legacy:python-baseline` 会自动切到 `legacy/python/` 并优先尝试 `python3`，必要时回退到 `python`
 - 这条链路只用于历史行为对照
 - 不再属于 TS 主线验收必跑项
 
@@ -188,7 +189,8 @@ bun run build
 ├── test/                    # Vitest 测试
 ├── tools/doctor.mjs         # 环境检查
 ├── tools/smoke.mjs          # Node 主线 smoke
-├── bili_terminal/           # legacy Python 参考实现 / macOS 打包脚本
+├── bili_terminal/           # Node 启动转发 / macOS 打包脚本
+├── legacy/python/           # legacy Python 参考实现与归档工具
 ├── docs/                    # 重构路线与清单
 ├── biliterminal             # 智能启动器
 └── .github/workflows/ci.yml # CI
@@ -283,7 +285,7 @@ bilibili-cli-history.json
 - 评论接口在权限受限或触发风控时，会尽量转成友好的终端提示。
 - 当前 TS 主线已经具备类型检查、自动测试、构建、smoke、CI、跨平台路径适配和多包管理器兼容验证。
 - `doctor:full` 默认验证 Node 主线 smoke，不再依赖 Python。
-- `bili_terminal/` 下的 Python 代码保留为 archive/reference，用于行为回溯，不再作为 fallback runtime。
+- `legacy/python/` 下的 Python 代码保留为 archive/reference，用于行为回溯，不再作为 fallback runtime。
 - `ace` 语义检索如果返回 `401 Unauthorized - Invalid token`，说明当前会话的 ace 授权有问题，不影响本地代码重构主线，但会影响语义搜索效率。
 
 ## 致谢

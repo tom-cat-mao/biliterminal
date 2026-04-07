@@ -9,7 +9,7 @@
   "scripts": {
     "doctor": "node tools/doctor.mjs",
     "doctor:full": "node tools/doctor.mjs --full",
-    "legacy:python-baseline": "python3 -m unittest discover -s bili_terminal/tests -v",
+    "legacy:python-baseline": "node tools/run-legacy-python-baseline.mjs",
     "dev": "tsx src/index.tsx",
     "build": "tsup src/index.tsx --format esm --target node20 --clean --sourcemap",
     "smoke": "node tools/smoke.mjs",

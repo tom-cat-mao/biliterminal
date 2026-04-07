@@ -34,6 +34,7 @@
 - [x] macOS `launch.command` 已切到 Node runtime
 - [x] macOS `.app` 打包已改为 TS payload
 - [x] README 已同步为 TS 主线说明
+- [x] legacy Python 参考实现已归档到 `legacy/python/`
 
 ## B. 当前下一阶段
 
@@ -53,7 +54,7 @@
 - [ ] 阅读 `README.md`
 - [ ] 阅读本阶段相关 `src/**`
 - [ ] 阅读本阶段相关 `test/**`
-- [ ] 必要时对照 `bili_terminal/**`
+- [ ] 必要时对照 `legacy/python/**`
 - [ ] 先补最小测试锚点
 - [ ] 再修改实现
 - [ ] 跑阶段最小测试
