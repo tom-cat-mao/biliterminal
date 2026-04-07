@@ -297,4 +297,41 @@ describe("tui/App", () => {
     expect(app.lastFrame()).toContain("最新评论");
     expect(app.lastFrame()).not.toContain("过期评论结果");
   });
+
+  it("详情加载未完成时切换选中项，过期详情响应不应强行进入详情页", async () => {
+    const detailDeferred = createDeferred<ReturnType<typeof makeVideoItem>>();
+    const client = createClient({
+      video: vi.fn().mockImplementation(() => detailDeferred.promise),
+    });
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(app.lastFrame()).toContain("编号 BV1xx411c7mu");
+    });
+
+    app.stdin.write("\r");
+    app.stdin.write("j");
+
+    await waitForAssertion(() => {
+      expect(app.lastFrame()).toContain("编号 BV1ab411c7mu");
+      expect(app.lastFrame()).not.toContain("详情页");
+    });
+
+    detailDeferred.resolve(
+      makeVideoItem({
+        title: "过期详情 A",
+        bvid: "BV1xx411c7mu",
+        aid: 106,
+        description: "这是一条过期详情",
+        url: "https://www.bilibili.com/video/BV1xx411c7mu",
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(app.lastFrame()).toContain("编号 BV1ab411c7mu");
+    expect(app.lastFrame()).not.toContain("详情页");
+    expect(app.lastFrame()).not.toContain("过期详情 A");
+  });
 });

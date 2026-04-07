@@ -57,8 +57,10 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const [loading, setLoading] = useState(false);
   const forceCommentsOnNextLoad = useRef(false);
   const selectedIndexRef = useRef(selectedIndex);
+  const selectedKeyRef = useRef<string | null>(null);
   const loadRequestIdRef = useRef(0);
   const commentRequestIdRef = useRef(new Map<string, number>());
+  const detailRequestIdRef = useRef(0);
 
   const selectedItem = items[selectedIndex] ?? null;
   const selectedKey = keyOf(selectedItem);
@@ -80,6 +82,10 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   useEffect(() => {
     selectedIndexRef.current = selectedIndex;
   }, [selectedIndex]);
+
+  useEffect(() => {
+    selectedKeyRef.current = selectedKey;
+  }, [selectedKey]);
 
   const refreshHomeMeta = useCallback(
     async (force = false) => {
@@ -319,7 +325,11 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
       return;
     }
     try {
+      const requestId = ++detailRequestIdRef.current;
       const loaded = await client.video(itemKey);
+      if (detailRequestIdRef.current !== requestId || selectedKeyRef.current !== itemKey) {
+        return;
+      }
       historyStore.addVideo(loaded);
       setDetailCache((prev) => ({ ...prev, [itemKey]: loaded }));
       setDetailMode(true);
