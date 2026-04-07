@@ -313,6 +313,11 @@ describe("tui/App", () => {
     });
 
     app.stdin.write("\r");
+
+    await waitForAssertion(() => {
+      expect(client.video).toHaveBeenCalledTimes(1);
+    });
+
     app.stdin.write("j");
 
     await waitForAssertion(() => {
