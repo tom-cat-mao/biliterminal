@@ -6,6 +6,12 @@ import { defaultHistoryPath, defaultStateDir } from "../../src/platform/paths.js
 import { HistoryStore } from "../../src/storage/history-store.js";
 import { makeVideoItem } from "../support/fixtures.js";
 
+function joinForPlatform(platformName: NodeJS.Platform, base: string, ...parts: string[]): string {
+  const pathApi = platformName === "win32" ? path.win32 : path.posix;
+  const normalizedBase = platformName === "win32" ? base.replace(/\//g, "\\") : base.replace(/\\/g, "/");
+  return pathApi.join(pathApi.normalize(normalizedBase), ...parts);
+}
+
 describe("storage/history-store", () => {
   let tempDir: string;
 
@@ -96,13 +102,15 @@ describe("storage/history-store", () => {
     const legacyDir = path.join(legacyCwd, ".omx", "state");
     fs.mkdirSync(legacyDir, { recursive: true });
     fs.writeFileSync(path.join(legacyDir, "bilibili-cli-history.json"), "{}\n");
-    expect(defaultStateDir({ cwd: legacyCwd, homeDir: "/home/tester", platform: "linux", env: {} })).toBe(legacyDir);
+    expect(defaultStateDir({ cwd: legacyCwd, homeDir: "/home/tester", platform: "linux", env: {} })).toBe(joinForPlatform("linux", legacyCwd, ".omx", "state"));
   });
 
   it("平台默认状态目录不可写时会回退到 legacy 目录", () => {
     const cwd = path.join(tempDir, "sandbox-repo");
     fs.mkdirSync(cwd, { recursive: true });
 
-    expect(defaultStateDir({ cwd, homeDir: "/Users/tester", platform: "darwin", env: {}, isWritable: () => false })).toBe(path.join(cwd, ".omx", "state"));
+    expect(defaultStateDir({ cwd, homeDir: "/Users/tester", platform: "darwin", env: {}, isWritable: () => false })).toBe(
+      joinForPlatform("darwin", cwd, ".omx", "state"),
+    );
   });
 });
