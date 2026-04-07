@@ -1,31 +1,83 @@
 # BiliTerminal
 
-一个轻量、低打扰、适合在终端里摸鱼刷一眼的 Bilibili 客户端。
+一个轻量、低打扰、适合在终端里快速浏览 Bilibili 视频内容的客户端。
 
-适合上班空隙快速看首页、搜中文视频、翻评论、顺手先收藏，等有空了再去网页端继续看。
+当前仓库已经进入 **Node.js + TypeScript 主线重构阶段**：
 
-## 快速启动
+- **主线实现**：`src/` 下的 TypeScript + Ink
+- **参考实现 / fallback**：`bili_terminal/` 下的 Python 版本
+- **推荐启动方式**：直接运行 `./biliterminal`
 
-macOS 双击版：
+如果要继续开发、测试或阶段验收，优先以 TS 主线为准；Python 保留用于参考行为对照、回退和桌面打包过渡。
 
-- 直接下载：<https://github.com/teee32/biliterminal/releases/latest/download/BiliTerminal-macOS.zip>
-- 解压后双击 `BiliTerminal.app`
+## 快速开始
 
-源码启动：
+### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/teee32/biliterminal.git && cd biliterminal && ./biliterminal
+git clone https://github.com/teee32/biliterminal.git
+cd biliterminal
 ```
 
-已经 clone 下来之后：
+### 2. 安装依赖
+
+推荐使用 `pnpm`：
+
+```bash
+pnpm install
+```
+
+也支持：
+
+```bash
+npm install
+bun install
+```
+
+### 3. 直接启动
+
+推荐直接使用智能启动器：
 
 ```bash
 ./biliterminal
 ```
 
-如果想直接启动某个命令：
+启动器当前顺序为：
+
+1. `dist/index.js`
+2. `pnpm exec tsx src/index.tsx`
+3. `bunx tsx src/index.tsx`
+4. `npm exec -- tsx src/index.tsx`
+5. Python fallback
+
+因此在多数情况下，不需要手动判断应该走哪条链路。
+
+## 推荐运行方式
+
+### TS 主线运行
+
+直接运行源码：
 
 ```bash
+pnpm exec tsx src/index.tsx history
+pnpm exec tsx src/index.tsx trending -n 5
+pnpm exec tsx src/index.tsx search 中文 -n 5
+pnpm exec tsx src/index.tsx tui
+pnpm exec tsx src/index.tsx repl
+```
+
+先构建再运行：
+
+```bash
+pnpm run build
+node dist/index.js history
+node dist/index.js --help
+```
+
+### 启动器运行
+
+```bash
+./biliterminal
 ./biliterminal recommend -n 5
 ./biliterminal search 中文 -n 5
 ./biliterminal favorite BV19K9uBmEdx
@@ -34,152 +86,197 @@ git clone https://github.com/teee32/biliterminal.git && cd biliterminal && ./bil
 ./biliterminal comments BV19K9uBmEdx -n 3
 ```
 
-兼容方式：
+### Python fallback
+
+如果需要回到参考实现或桌面打包过渡链路，可使用：
 
 ```bash
 python3 -m bili_terminal tui
+python3 -m bili_terminal recommend -n 5
 ./bili_terminal/start.sh
 ```
 
-自己构建 macOS 双击版：
+## 当前能力范围
 
-```bash
-./bili_terminal/build_macos_app.sh
-open dist/BiliTerminal.app
-```
-
-## 界面预览
-
-下面这几张都是当前版本的真实运行截图。
-
-### 首页流
-
-![BiliTerminal 首页流](assets/readme/tui-home.png)
-
-### 搜索与评论
-
-![BiliTerminal 搜索与评论](assets/readme/tui-search.png)
-
-### 详情页
-
-![BiliTerminal 详情页](assets/readme/tui-detail.png)
-
-这个实现基于对 Bilibili 网页公开接口的逆向观察，当前覆盖 3 个核心能力：
+当前已覆盖的主能力：
 
 - 首页推荐流
 - 热门视频列表
 - 入站必刷列表
-- 关键词搜索
+- 分区榜单
 - 首页热搜词
+- 默认搜索词
+- 关键词搜索
 - 视频详情查看
 - 视频评论预览
-- 从终端直接打开浏览器页面
-- 本地收藏夹，支持稍后从浏览器继续看
+- 浏览器打开当前视频
+- 本地收藏夹
 - 最近搜索与最近浏览历史
-- 交互式 REPL，支持基于上一次列表结果按序号继续操作
-- 全屏 TUI，支持首页推荐流、分区切换、方向键浏览、回车进入详情页、历史视图、返回栈和帮助浮层
-- TUI 搜索框支持直接输入中文关键词
+- REPL
+- 全屏 TUI
+- TUI 中文直接输入搜索
 
-## 运行
+当前**不处理**：
 
-项目文件已经集中在 `bili_terminal/` 目录下，直接运行目录内的脚本即可。
+- 登录态
+- 视频下载
+- 评论发送 / 弹幕发送 / 投稿
+- 直播 / 课程 / 专栏 / 动态等非视频主线
+- Docker
+
+## 开发命令
+
+### 环境检查
 
 ```bash
-python3 bili_terminal/bilibili_cli.py hot -n 5
-python3 bili_terminal/bilibili_cli.py recommend -n 5
-python3 bili_terminal/bilibili_cli.py precious -n 5
-python3 bili_terminal/bilibili_cli.py trending -n 10
-python3 bili_terminal/bilibili_cli.py search 原神 -n 5
-python3 bili_terminal/bilibili_cli.py video BV1xx411c7mu
-python3 bili_terminal/bilibili_cli.py favorite BV19K9uBmEdx
-python3 bili_terminal/bilibili_cli.py favorites
-python3 bili_terminal/bilibili_cli.py favorites open 1
-python3 bili_terminal/bilibili_cli.py favorites remove 1
-python3 bili_terminal/bilibili_cli.py history
-python3 bili_terminal/bilibili_cli.py repl
-python3 bili_terminal/bilibili_cli.py tui
-python3 -m bili_terminal recommend -n 5
-python3 -m bili_terminal tui
+pnpm run doctor
+pnpm run doctor:full
+```
+
+### 类型检查 / 构建 / 测试
+
+```bash
+pnpm run typecheck
+pnpm run test
+pnpm run build
+pnpm run ci
+```
+
+### 分模块测试
+
+```bash
+pnpm run test:core
+pnpm run test:storage
+pnpm run test:api
+pnpm run test:cli
+pnpm run test:tui
+```
+
+### Python 基线
+
+```bash
+pnpm run baseline:python
+# 或
 python3 -m unittest discover -s bili_terminal/tests -v
 ```
 
-## macOS 双击运行
+### 多包管理器兼容验证
 
-直接下载 release：
+```bash
+npm run typecheck
+npm run test
+npm run build
 
-- <https://github.com/teee32/biliterminal/releases/latest/download/BiliTerminal-macOS.zip>
+bun run typecheck
+bun run test
+bun run build
+```
 
-自己构建应用包：
+## 当前项目结构
+
+```text
+.
+├── src/                     # TypeScript 主线
+│   ├── api/                 # Bilibili API / parser
+│   ├── cli/                 # CLI / REPL 分发
+│   ├── core/                # 文本、格式、WBI、类型
+│   ├── platform/            # 路径、浏览器打开
+│   ├── storage/             # 历史与收藏夹
+│   ├── tui/                 # Ink TUI
+│   └── index.tsx            # TS 主入口
+├── test/                    # Vitest 测试
+├── tools/doctor.mjs         # 环境检查
+├── bili_terminal/           # Python 参考实现 / fallback
+├── docs/                    # 重构路线与清单
+├── biliterminal             # 智能启动器
+└── .github/workflows/ci.yml # CI
+```
+
+## 状态目录与历史文件
+
+状态目录解析顺序如下：
+
+1. `BILITERMINAL_STATE_DIR`
+2. `BILITERMINAL_HOME/state`
+3. 如果当前运行位置就是仓库根目录 / 开发工作区，则默认使用 `.omx/state`
+4. 如果已存在 legacy 历史文件，则继续复用 `.omx/state`
+5. 否则按平台默认目录
+
+平台默认目录：
+
+- macOS：`~/Library/Application Support/BiliTerminal/state`
+- Linux：`$XDG_STATE_HOME/biliterminal` 或 `~/.local/state/biliterminal`
+- Windows：`%APPDATA%\BiliTerminal\state`
+
+默认历史文件名：
+
+```text
+bilibili-cli-history.json
+```
+
+这意味着：
+
+- 老用户已有 `.omx/state/bilibili-cli-history.json` 时，会被自动沿用
+- 新环境会优先走更合理的跨平台状态目录
+
+## TUI 快捷键
+
+- `↑/↓` 或 `j/k`：移动选中项
+- `Enter`：进入详情页
+- `Esc` 或 `b`：从详情页返回，或回到上一个列表状态
+- `/` 或 `s`：输入搜索关键词
+- `Tab` / `Shift+Tab`：切换首页分区
+- `1-9`：直接切换首页对应分区
+- `l`：重新执行最近一次搜索
+- `d`：使用默认搜索词直接搜索
+- `h`：回首页
+- `v`：最近浏览
+- `m`：收藏夹
+- `f`：收藏 / 取消收藏当前视频
+- `n/p`：翻页
+- `PgUp/PgDn`：详情页滚动
+- `o`：浏览器打开当前视频
+- `c`：刷新评论
+- `r`：刷新当前列表
+- `?`：帮助浮层
+- `q`：退出
+
+## macOS 双击版
+
+仓库里仍保留 macOS 双击打包脚本：
 
 ```bash
 ./bili_terminal/build_macos_app.sh
 ```
 
-构建完成后会生成两个产物：
+当前这条桌面打包链路仍然主要打包 Python 参考实现，因此它属于**过渡兼容能力**，不是 TS 主线的最终分发形态。
+
+构建产物：
 
 - `dist/BiliTerminal.app`
 - `dist/BiliTerminal-macOS.zip`
 
-本机直接双击 `dist/BiliTerminal.app` 即可，或者命令行执行：
+## 重构路线文档
 
-```bash
-open dist/BiliTerminal.app
-```
+如果要查看当前 TS 重构路线与执行清单，可直接阅读：
 
-如果要发给别人，直接把 `dist/BiliTerminal-macOS.zip` 发过去，解压后双击 `.app`。
+- `docs/ts-refactor-roadmap.md`
+- `docs/ts-refactor-checklist.md`
 
-当前双击版仍需要目标机器能找到 `python3`。启动日志会写到 `~/.biliterminal/launcher.log`。
+这两份文档定义了：
 
-## REPL 示例
-
-```text
-$ python3 bili_terminal/bilibili_cli.py repl
-bili> hot 1 5
-bili> favorite 1
-bili> favorites
-bili> favorites open 1
-bili> video 1
-bili> open 1
-bili> search 原神 1 5
-```
-
-## TUI 快捷键
-
-- `↑/↓` 或 `j/k`：移动选中项
-- `Enter`：进入全屏详情视图
-- `Esc` 或 `b`：从详情页返回，或回到上一个列表状态
-- `/` 或 `s`：输入搜索关键词
-- `Tab` / `Shift+Tab`：切换首页分区
-- `1-9`：直接切到首页对应分区
-- 直接输入中文即可搜索，例如 `原神`、`中文`
-- `l`：重新执行最近一次搜索
-- `d`：使用首页默认搜索词直接搜索
-- `h`：切回首页内容流
-- `v`：切到最近浏览
-- `m`：切到收藏夹
-- `f`：收藏 / 取消收藏当前视频
-- `n/p`：翻页
-- `PgUp/PgDn`：在详情页滚动
-- `o`：浏览器打开当前视频
-- `c`：刷新当前视频评论预览
-- `r`：刷新当前列表
-- `?`：显示帮助浮层
-- `q`：退出
-
-## 测试
-
-```bash
-python3 -m unittest discover -s bili_terminal/tests -v
-```
+- 阶段重构计划
+- 阶段测试要求
+- 自动修复闭环
+- 跨平台收口策略
+- 最终验收链路
 
 ## 说明
 
-- CLI 会为接口补齐浏览器请求头，降低被风控 412 的概率。
-- 仓库内直接运行时，搜索词和最近浏览视频会落到 `.omx/state/bilibili-cli-history.json`。
-- 双击版会把历史写到 `~/.biliterminal/state/bilibili-cli-history.json`，并把启动日志写到 `~/.biliterminal/launcher.log`。
-- 这是一个偏“轻量摸鱼”场景的终端浏览器，不是下载器，也没有实现登录态、投稿、评论发送、弹幕发送等需要更高权限的功能。
-- 目前默认聚焦视频内容，不处理直播、课程、专栏、动态等其他内容类型。
-- 终端版已经接入首页推荐、热搜、默认搜索词、入站必刷与分区榜单，但因为 curses 终端没有图片、瀑布流和登录态组件，所以还不是官网像素级复刻。
+- CLI 与 TUI 会为接口补齐浏览器请求头，降低被风控 412 的概率。
+- 评论接口在权限受限或触发风控时，会尽量转成友好的终端提示。
+- 当前 TS 主线已经具备类型检查、自动测试、构建、CI、跨平台路径适配和多包管理器兼容验证。
+- `ace` 语义检索如果返回 `401 Unauthorized - Invalid token`，说明当前会话的 ace 授权有问题，不影响本地代码重构主线，但会影响语义搜索效率。
 
 ## 致谢
 

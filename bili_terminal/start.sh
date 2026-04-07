@@ -4,6 +4,22 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [ -f "dist/index.js" ]; then
+  exec node dist/index.js "$@"
+fi
+
+if [ -f "package.json" ]; then
+  if command -v pnpm >/dev/null 2>&1; then
+    exec pnpm exec tsx src/index.tsx "$@"
+  fi
+  if command -v bunx >/dev/null 2>&1; then
+    exec bunx tsx src/index.tsx "$@"
+  fi
+  if command -v npm >/dev/null 2>&1; then
+    exec npm exec -- tsx src/index.tsx "$@"
+  fi
+fi
+
 if [ "$#" -eq 0 ]; then
   exec python3 -m bili_terminal tui
 fi

@@ -8,3 +8,7 @@ dist/
 .omx/
 memoapp1/
 MT2.26.4.apk
+.ace-tool/
+.cache/
+node_modules/
+.pnpm-store/
