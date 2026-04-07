@@ -85,6 +85,8 @@ describe("tui/App", () => {
       expect(app.lastFrame()).toContain("推荐视频 A");
     });
 
+    app.stdin.write("\r");
+    app.stdin.write("\n");
     app.stdin.write("\u001B[C");
 
     await waitForAssertion(() => {

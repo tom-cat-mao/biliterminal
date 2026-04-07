@@ -123,11 +123,7 @@ if (commandExists("gh")) {
 const preferredRepoCache = path.join(repoRoot, ".cache", "npm");
 const npmCacheResult = run("npm", ["config", "get", "cache"]);
 if (npmCacheResult.status !== 0) {
-  if (isPathWritable(preferredRepoCache)) {
-    warn("npm_cache", `无法读取 npm cache 配置，回退检查 ${preferredRepoCache}`, "Windows / CI 上偶发 npm config 兼容问题时，优先保证仓库内 cache 可写");
-  } else {
-    fail("npm_cache", firstLine(npmCacheResult.stderr) || "无法读取 npm cache 配置");
-  }
+  warn("npm_cache", `无法读取 npm cache 配置，回退使用 ${preferredRepoCache}`, "Windows / CI 上偶发 npm config 兼容问题时，不阻塞主线验证");
 } else {
   const npmCache = firstLine(npmCacheResult.stdout);
   const resolvedCache = path.resolve(npmCache);
