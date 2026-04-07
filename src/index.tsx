@@ -1,4 +1,6 @@
 import process from "node:process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import React from "react";
 import { render } from "ink";
 import { BilibiliAPIError } from "./core/types.js";
@@ -9,22 +11,23 @@ import { buildProgram } from "./cli/parser.js";
 import { runRepl } from "./cli/repl.js";
 import { BiliTerminalApp } from "./tui/App.js";
 
+async function runTui(client: BilibiliClient, historyStore: HistoryStore): Promise<void> {
+  const app = render(<BiliTerminalApp client={client} historyStore={historyStore} />, {
+    exitOnCtrlC: false,
+    patchConsole: true,
+  });
+  await app.waitUntilExit();
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const client = new BilibiliClient();
   const historyStore = new HistoryStore();
   const ctx = createCommandContext(client, historyStore);
+  ctx.runRepl = async () => runRepl(ctx);
+  ctx.runTui = async () => runTui(client, historyStore);
 
   try {
-    if (argv.length === 0 || argv[0] === "tui") {
-      const app = render(<BiliTerminalApp client={client} historyStore={historyStore} />, {
-        exitOnCtrlC: false,
-        patchConsole: true,
-      });
-      await app.waitUntilExit();
-      return 0;
-    }
-
-    if (argv[0] === "repl") {
+    if (argv.length === 0) {
       await runRepl(ctx);
       return 0;
     }
@@ -39,7 +42,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
+const currentModulePath = fileURLToPath(import.meta.url);
+
+if (entryPath && currentModulePath === entryPath) {
   void main().then((code) => {
     process.exitCode = code;
   });

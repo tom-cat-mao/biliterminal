@@ -97,9 +97,9 @@ if (commandExists("bun")) {
 
 if (commandExists("python3")) {
   const pythonVersion = firstLine(run("python3", ["--version"]).stdout || run("python3", ["--version"]).stderr);
-  ok("python3", pythonVersion || "已安装");
+  warn("python3", pythonVersion || "已安装", "Python 已降级为 legacy 参考实现，不再是主线运行依赖");
 } else {
-  warn("python3", "未找到 python3", "若要继续使用现有 Python 基线测试，需要安装 Python 3");
+  ok("python3", "未找到（主线无需 Python）");
 }
 
 if (commandExists("tmux")) {
@@ -147,16 +147,11 @@ if (fs.existsSync(packageJsonPath)) {
 }
 
 if (fullMode) {
-  const baseline = run("python3", ["-m", "unittest", "discover", "-s", "bili_terminal/tests", "-v"]);
-  if (baseline.status === 0) {
-    const summary = firstLine(
-      [...baseline.stdout.split(/\r?\n/).reverse(), ...baseline.stderr.split(/\r?\n/).reverse()].find((line) =>
-        /Ran \d+ tests?/.test(line),
-      ) || "",
-    );
-    ok("python_baseline", summary || "Python baseline tests passed");
+  const smoke = run("node", ["tools/smoke.mjs"]);
+  if (smoke.status === 0) {
+    ok("smoke", "Node 主线 smoke 通过");
   } else {
-    fail("python_baseline", "Python baseline tests failed", firstLine(baseline.stderr) || firstLine(baseline.stdout));
+    fail("smoke", "Node 主线 smoke 失败", firstLine(smoke.stderr) || firstLine(smoke.stdout));
   }
 }
 

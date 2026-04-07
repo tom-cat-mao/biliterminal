@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: ${{ matrix.os }} / node-${{ matrix.node }}
@@ -42,3 +45,10 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Smoke
+        run: pnpm run smoke
+
+      - name: Package macOS app
+        if: runner.os == 'macOS' && matrix.node == 22
+        run: pnpm run package:macos

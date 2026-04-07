@@ -6,6 +6,14 @@ export function buildProgram(ctx: CommandContext): Command {
   const program = new Command();
   program.name("biliterminal").description("把 Bilibili 常用浏览操作搬到终端里。");
 
+  program.command("repl").description("进入交互模式").action(async () => {
+    await executeParsedCommand("repl", {}, ctx);
+  });
+
+  program.command("tui").description("进入全屏终端界面").action(async () => {
+    await executeParsedCommand("tui", {}, ctx);
+  });
+
   program.command("hot").description("查看热门视频").option("-p, --page <page>", "页码", "1").option("-n, --limit <limit>", "数量", "10").action(async (options) => {
     await executeParsedCommand("hot", { page: Number(options.page), limit: Number(options.limit) }, ctx);
   });

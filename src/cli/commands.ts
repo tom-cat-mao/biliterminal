@@ -11,6 +11,8 @@ export interface CommandContext {
   historyStore: HistoryStore;
   lastItems: VideoItem[];
   out?: Pick<Console, "log">;
+  runRepl?: () => Promise<void>;
+  runTui?: () => Promise<void>;
 }
 
 export function createCommandContext(client: BilibiliClient, historyStore: HistoryStore, out: Pick<Console, "log"> = console): CommandContext {
@@ -156,6 +158,16 @@ export async function runTrending(limit: number, ctx: CommandContext): Promise<v
 
 export async function executeParsedCommand(command: string, args: Record<string, unknown>, ctx: CommandContext): Promise<void> {
   switch (command) {
+    case "repl":
+      if (!ctx.runRepl) {
+        throw new Error("当前上下文没有配置 REPL 入口");
+      }
+      return ctx.runRepl();
+    case "tui":
+      if (!ctx.runTui) {
+        throw new Error("当前上下文没有配置 TUI 入口");
+      }
+      return ctx.runTui();
     case "hot":
       return runHot(Number(args.page ?? 1), Number(args.limit ?? 10), ctx);
     case "recommend":

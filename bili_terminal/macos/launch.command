@@ -3,34 +3,54 @@ set -euo pipefail
 
 APP_RESOURCES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PAYLOAD_DIR="${APP_RESOURCES_DIR}/app"
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
-export BILITERMINAL_HOME="${BILITERMINAL_HOME:-${HOME}/.biliterminal}"
-export PYTHONPYCACHEPREFIX="${PYTHONPYCACHEPREFIX:-${BILITERMINAL_HOME}/pycache}"
-LOG_FILE="${BILITERMINAL_LOG_FILE:-${BILITERMINAL_HOME}/launcher.log}"
+DIST_DIR="${PAYLOAD_DIR}/dist"
+RUNTIME_DIR="${APP_RESOURCES_DIR}/runtime"
+LOG_HOME="${BILITERMINAL_HOME:-${HOME}/.biliterminal}"
+LOG_FILE="${BILITERMINAL_LOG_FILE:-${LOG_HOME}/launcher.log}"
 
-mkdir -p "${BILITERMINAL_HOME}" "${PYTHONPYCACHEPREFIX}" "$(dirname "${LOG_FILE}")"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+export BILITERMINAL_HOME="${LOG_HOME}"
+
+mkdir -p "${LOG_HOME}" "$(dirname "${LOG_FILE}")"
 printf '[%s] launch.command invoked\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "${LOG_FILE}"
 
-PYTHON_BIN=""
-for candidate in "${BILITERMINAL_PYTHON:-}" python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
-    if [ -n "${candidate}" ] && command -v "${candidate}" >/dev/null 2>&1; then
-        PYTHON_BIN="$(command -v "${candidate}")"
-        break
-    fi
+NODE_BIN=""
+for candidate in \
+  "${BILITERMINAL_NODE:-}" \
+  "${RUNTIME_DIR}/bin/node" \
+  "${RUNTIME_DIR}/node" \
+  node \
+  /opt/homebrew/bin/node \
+  /usr/local/bin/node
+do
+  if [ -n "${candidate}" ] && command -v "${candidate}" >/dev/null 2>&1; then
+    NODE_BIN="$(command -v "${candidate}")"
+    break
+  fi
+  if [ -x "${candidate}" ]; then
+    NODE_BIN="${candidate}"
+    break
+  fi
 done
 
-if [ -z "${PYTHON_BIN}" ]; then
-    printf '[%s] python3 not found\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "${LOG_FILE}"
-    /usr/bin/osascript -e 'display dialog "未找到 python3，请先安装 Python 3 后再运行 BiliTerminal。" buttons {"好"} default button 1 with icon stop'
-    exit 1
+if [ -z "${NODE_BIN}" ]; then
+  printf '[%s] node not found\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "${LOG_FILE}"
+  /usr/bin/osascript -e 'display dialog "未找到 Node.js，请先安装 Node 20+ 后再运行 BiliTerminal。" buttons {"好"} default button 1 with icon stop'
+  exit 1
 fi
 
-printf '[%s] using python: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${PYTHON_BIN}" >> "${LOG_FILE}"
+if [ ! -f "${DIST_DIR}/index.js" ]; then
+  printf '[%s] missing dist payload: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${DIST_DIR}/index.js" >> "${LOG_FILE}"
+  /usr/bin/osascript -e 'display dialog "应用包内缺少 dist/index.js，请重新构建 BiliTerminal.app。" buttons {"好"} default button 1 with icon stop'
+  exit 1
+fi
+
+printf '[%s] using node: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${NODE_BIN}" >> "${LOG_FILE}"
 
 cd "${PAYLOAD_DIR}"
 clear
 printf 'BiliTerminal 正在启动...\n\n'
-"${PYTHON_BIN}" -m bili_terminal tui
+"${NODE_BIN}" "${DIST_DIR}/index.js" tui
 STATUS=$?
 printf '[%s] tui exited with status: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${STATUS}" >> "${LOG_FILE}"
 exit "${STATUS}"

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { BilibiliClient } from "../api/bilibili-client.js";
 import { videoKeyFromItem } from "../api/parsers.js";
@@ -55,6 +55,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [loading, setLoading] = useState(false);
+  const forceCommentsOnNextLoad = useRef(false);
 
   const selectedItem = items[selectedIndex] ?? null;
   const selectedKey = keyOf(selectedItem);
@@ -97,50 +98,8 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     [client, defaultSearchKeyword, trendingKeywords.length],
   );
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      let nextItems: VideoItem[] = [];
-      if (mode === "search" && keyword) {
-        nextItems = await client.search(keyword, page, limit);
-      } else if (mode === "history") {
-        nextItems = historyStore.getRecentVideos(limit);
-      } else if (mode === "favorites") {
-        nextItems = historyStore.getFavoriteVideos(limit);
-      } else {
-        await refreshHomeMeta();
-        const channel = HOME_CHANNELS[channelIndex];
-        if (channel.source === "recommend") {
-          nextItems = await client.recommend(page, limit);
-        } else if (channel.source === "popular") {
-          nextItems = await client.popular(page, limit);
-        } else if (channel.source === "precious") {
-          nextItems = await client.precious(page, limit);
-        } else {
-          nextItems = await client.regionRanking(channel.rid ?? 1, 3, page, limit);
-        }
-      }
-      setItems(nextItems);
-      setSelectedIndex((prev) => clampSelection(prev, nextItems.length));
-      setDetailMode(false);
-      setDetailScroll(0);
-      setStatus(`已加载 ${nextItems.length} 条结果`);
-    } catch (error) {
-      setItems([]);
-      setSelectedIndex(0);
-      setStatus(`错误: ${(error as Error).message}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [client, historyStore, keyword, limit, mode, page, channelIndex, refreshHomeMeta]);
-
-  useEffect(() => {
-    void loadItems();
-  }, [loadItems, reloadToken]);
-
-  const ensureCommentsForSelected = useCallback(
-    async (force = false): Promise<CommentLoadResult> => {
-      const item = items[selectedIndex];
+  const ensureCommentsForItem = useCallback(
+    async (item: VideoItem | null | undefined, force = false): Promise<CommentLoadResult> => {
       const itemKey = keyOf(item);
       if (!item || !itemKey) {
         return { status: "skipped" };
@@ -193,8 +152,63 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
         return { status: "error", itemKey, error: message };
       }
     },
-    [items, selectedIndex, commentCache, commentErrors, detailCache, client],
+    [commentCache, commentErrors, detailCache, client],
   );
+
+  const ensureCommentsForSelected = useCallback(
+    async (force = false): Promise<CommentLoadResult> => ensureCommentsForItem(items[selectedIndex], force),
+    [ensureCommentsForItem, items, selectedIndex],
+  );
+
+  const loadItems = useCallback(
+    async (options: { forceComments?: boolean } = {}) => {
+      setLoading(true);
+      try {
+        let nextItems: VideoItem[] = [];
+        if (mode === "search" && keyword) {
+          nextItems = await client.search(keyword, page, limit);
+        } else if (mode === "history") {
+          nextItems = historyStore.getRecentVideos(limit);
+        } else if (mode === "favorites") {
+          nextItems = historyStore.getFavoriteVideos(limit);
+        } else {
+          await refreshHomeMeta();
+          const channel = HOME_CHANNELS[channelIndex];
+          if (channel.source === "recommend") {
+            nextItems = await client.recommend(page, limit);
+          } else if (channel.source === "popular") {
+            nextItems = await client.popular(page, limit);
+          } else if (channel.source === "precious") {
+            nextItems = await client.precious(page, limit);
+          } else {
+            nextItems = await client.regionRanking(channel.rid ?? 1, 3, page, limit);
+          }
+        }
+        const nextSelectedIndex = clampSelection(selectedIndex, nextItems.length);
+        setItems(nextItems);
+        setSelectedIndex(nextSelectedIndex);
+        setDetailMode(false);
+        setDetailScroll(0);
+        if (options.forceComments) {
+          await ensureCommentsForItem(nextItems[nextSelectedIndex], true);
+        }
+        setStatus(`已加载 ${nextItems.length} 条结果`);
+      } catch (error) {
+        setItems([]);
+        setSelectedIndex(0);
+        setStatus(`错误: ${(error as Error).message}`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client, historyStore, keyword, limit, mode, page, channelIndex, refreshHomeMeta, selectedIndex, ensureCommentsForItem],
+  );
+
+  useEffect(() => {
+    const forceComments = forceCommentsOnNextLoad.current;
+    forceCommentsOnNextLoad.current = false;
+    void loadItems({ forceComments });
+  }, [loadItems, reloadToken]);
 
   useEffect(() => {
     void ensureCommentsForSelected(false);
@@ -204,6 +218,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     if (mode === "hot") {
       await refreshHomeMeta(true);
     }
+    forceCommentsOnNextLoad.current = true;
     setReloadToken((prev) => prev + 1);
     setStatus(`已刷新: ${title}`);
   }, [mode, refreshHomeMeta, title]);
@@ -311,6 +326,25 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     },
     [keyword, pushCurrentState],
   );
+
+  const triggerDefaultSearch = useCallback(async () => {
+    let word = defaultSearchKeyword;
+    if (!word) {
+      try {
+        word = await client.searchDefault();
+        setDefaultSearchKeyword(word);
+      } catch (error) {
+        setStatus(`错误: ${(error as Error).message}`);
+        return;
+      }
+    }
+    if (!word) {
+      setStatus("当前没有默认搜索词");
+      return;
+    }
+    historyStore.addKeyword(word);
+    switchMode("search", 1, word);
+  }, [client, defaultSearchKeyword, historyStore, switchMode]);
 
   const cycleChannel = useCallback(
     (step: number) => {
@@ -450,13 +484,7 @@ export function BiliTerminalApp({ client, historyStore, limit = 5 }: TuiAppProps
     } else if (input === "l") {
       rerunLastSearch();
     } else if (input === "d") {
-      const word = defaultSearchKeyword;
-      if (word) {
-        historyStore.addKeyword(word);
-        switchMode("search", 1, word);
-      } else {
-        setStatus("当前没有默认搜索词");
-      }
+      void triggerDefaultSearch();
     } else if (input === "/" || input === "s") {
       setPromptState({ prompt: "搜索关键词: ", value: mode === "search" ? keyword : "" });
     } else if (input === "n" || key.pageDown) {

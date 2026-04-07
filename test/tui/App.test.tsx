@@ -120,6 +120,56 @@ describe("tui/App", () => {
     });
   });
 
+  it("按 d 时会在默认词缓存为空时即时补拉并执行搜索", async () => {
+    const searchDefaultMock = vi.fn().mockResolvedValueOnce("").mockResolvedValueOnce("补拉默认词");
+    const searchMock = vi.fn().mockImplementation(async (keyword: string) => [
+      makeVideoItem({ title: `${keyword} 搜索结果`, bvid: "BV1se411c7mu", aid: 109, url: "https://www.bilibili.com/video/BV1se411c7mu" }),
+    ]);
+    const client = createClient({
+      searchDefault: searchDefaultMock,
+      search: searchMock,
+    });
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(searchDefaultMock).toHaveBeenCalledTimes(1);
+      expect(app.lastFrame()).toContain("默认搜索: 按 / 开始搜索");
+    });
+
+    app.stdin.write("d");
+
+    await waitForAssertion(() => {
+      expect(searchDefaultMock).toHaveBeenCalledTimes(2);
+      expect(searchMock).toHaveBeenCalledWith("补拉默认词", 1, 2);
+      expect(app.lastFrame()).toContain("搜索: 补拉默认词");
+      expect(app.lastFrame()).toContain("补拉默认词 搜索结果");
+    });
+  });
+
+  it("按 r 刷新当前页时会强制重新拉取当前评论", async () => {
+    const commentsMock = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ author: "刷新评论", message: "刷新后的评论内容", like: 9, ctime: 1_710_000_001 } satisfies CommentItem]);
+    const client = createClient({ comments: commentsMock });
+    const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });
+    const app = render(<BiliTerminalApp client={client as never} historyStore={historyStore} limit={2} />);
+
+    await waitForAssertion(() => {
+      expect(commentsMock).toHaveBeenCalledTimes(1);
+      expect(app.lastFrame()).toContain("当前视频暂无可显示热评");
+    });
+
+    app.stdin.write("r");
+
+    await waitForAssertion(() => {
+      expect(commentsMock).toHaveBeenCalledTimes(2);
+      expect(app.lastFrame()).toContain("刷新评论");
+      expect(app.lastFrame()).toContain("刷新后的评论内容");
+    });
+  });
+
   it("评论加载失败时会展示浏览器回退提示", async () => {
     const client = createClient({ comments: vi.fn().mockRejectedValue(new Error("评论接口受限，请稍后重试或按 o 在浏览器中查看")) });
     const historyStore = new HistoryStore({ path: path.join(tempDir, "history.json") });

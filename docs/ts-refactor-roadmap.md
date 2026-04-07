@@ -1,6 +1,6 @@
 # BiliTerminal TypeScript 自主重构路线
 
-本文档用于约束并驱动当前仓库从 Python 主实现逐步切换到 Node.js + TypeScript 主实现，目标是让 Codex 可以在**无需人工持续介入**的前提下，按阶段完成：重构、测试、反复修复、文档同步、跨平台收口与最终验收。
+本文档记录本仓库从 Python 主实现切换到 Node.js + TypeScript 主实现的完整路线与最终收口状态。当前主线已经完成切换，后续继续维护时，默认以 **TS 唯一主运行时** 为准，Python 代码仅保留为 archive/reference。
 
 ## 1. 当前真实基线
 
@@ -11,11 +11,15 @@
 - 已建立首批测试目录：`test/`
 - 已建立环境检查脚本：`tools/doctor.mjs`
 - 已建立 GitHub Actions：`.github/workflows/ci.yml`
-- 启动器已改为优先运行 TS：`./biliterminal`、`bili_terminal/start.sh`
+- 启动器已切到 Node-only：`./biliterminal`、`bili_terminal/start.sh`
+- `node dist/index.js` 无参数默认进入 REPL，`./biliterminal` 无参数默认进入 TUI
 - 已支持 `pnpm / npm / bun` 三条包管理器链路的基本兼容验证
 - 已支持跨平台状态目录解析：macOS / Linux / Windows / legacy `.omx/state`
 - 在 repo 根目录开发时默认回退到 `.omx/state`，避免开发态写入系统级目录
-- Python 基线仍保留，作为参考实现与回退链路
+- `doctor:full` 已切换为 Node 主线 smoke，不再依赖 Python baseline
+- GitHub Actions 三平台矩阵已实跑通过
+- macOS `launch.command` 与 `.app` 打包 payload 已切到 Node + TS
+- Python 代码仍保留在 `bili_terminal/`，但只作为参考实现与历史存档
 
 当前已经验证通过的命令：
 
@@ -25,6 +29,7 @@ pnpm run doctor:full
 pnpm run typecheck
 pnpm run test
 pnpm run build
+pnpm run smoke
 pnpm run ci
 npm run typecheck
 npm run test
@@ -34,19 +39,20 @@ bun run test
 bun run build
 ./biliterminal history
 node dist/index.js --help
+printf 'exit\n' | node dist/index.js
 ```
 
 当前明确存在的非阻塞缺口：
 
 - `ace` 语义检索在当前会话返回 `401 Unauthorized - Invalid token`
-- 远端 GitHub Actions 虽已具备 workflow，但尚未做 push 后矩阵实跑确认
+- Python 参考实现尚未归档迁出，但已经退出主运行链 / 主测试链 / 主打包链
 
 ## 2. 总目标
 
 最终目标不是“写一版 TS 代码”，而是交付一条可以自主推进、可重复执行、能反复修复失败并最终稳定收口的工程路线：
 
-1. 以 TypeScript 作为主实现。
-2. 保留 Python 作为参考实现和紧急回退，不立即删除。
+1. 以 TypeScript 作为唯一主实现与唯一主运行时。
+2. 保留 Python 作为参考实现与历史归档，不再作为 fallback runtime。
 3. CLI / REPL / TUI / API / 存储 / 平台适配全部纳入 TS 主线。
 4. 所有阶段都必须具备自动验证命令。
 5. 所有失败都必须进入“定位 -> 修复 -> 重测 -> 回归”的闭环。
@@ -90,7 +96,7 @@ node dist/index.js --help
         ┌──────────────────┼──────────────────┐
         │                  │                  │
         ▼                  ▼                  ▼
-   dist/index.js     tsx 直接运行        Python fallback
+   dist/index.js     tsx 直接运行       Python archive
                            │
                            ▼
                  ┌────────────────────┐

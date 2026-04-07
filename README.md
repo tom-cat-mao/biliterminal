@@ -2,13 +2,11 @@
 
 一个轻量、低打扰、适合在终端里快速浏览 Bilibili 视频内容的客户端。
 
-当前仓库已经进入 **Node.js + TypeScript 主线重构阶段**：
+当前仓库已经完成 **Node.js + TypeScript 主线切换**：
 
-- **主线实现**：`src/` 下的 TypeScript + Ink
-- **参考实现 / fallback**：`bili_terminal/` 下的 Python 版本
+- **唯一主运行时**：`src/` 下的 TypeScript + Ink
 - **推荐启动方式**：直接运行 `./biliterminal`
-
-如果要继续开发、测试或阶段验收，优先以 TS 主线为准；Python 保留用于参考行为对照、回退和桌面打包过渡。
+- **归档参考实现**：`bili_terminal/` 下的 Python 代码仅保留为历史参考，不再参与主运行链、主测试链与主打包链
 
 ## 快速开始
 
@@ -48,9 +46,13 @@ bun install
 2. `pnpm exec tsx src/index.tsx`
 3. `bunx tsx src/index.tsx`
 4. `npm exec -- tsx src/index.tsx`
-5. Python fallback
 
-因此在多数情况下，不需要手动判断应该走哪条链路。
+并且有一个明确约定：
+
+- `node dist/index.js` / `tsx src/index.tsx` **无参数默认进入 REPL**
+- `./biliterminal` **无参数默认进入 TUI**
+
+因此既保留了原版模块入口语义，也保留了日常终端启动体验。
 
 ## 推荐运行方式
 
@@ -70,6 +72,9 @@ pnpm exec tsx src/index.tsx repl
 
 ```bash
 pnpm run build
+node dist/index.js
+node dist/index.js repl
+node dist/index.js tui
 node dist/index.js history
 node dist/index.js --help
 ```
@@ -84,16 +89,6 @@ node dist/index.js --help
 ./biliterminal favorites
 ./biliterminal favorites open 1
 ./biliterminal comments BV19K9uBmEdx -n 3
-```
-
-### Python fallback
-
-如果需要回到参考实现或桌面打包过渡链路，可使用：
-
-```bash
-python3 -m bili_terminal tui
-python3 -m bili_terminal recommend -n 5
-./bili_terminal/start.sh
 ```
 
 ## 当前能力范围
@@ -139,6 +134,7 @@ pnpm run doctor:full
 pnpm run typecheck
 pnpm run test
 pnpm run build
+pnpm run smoke
 pnpm run ci
 ```
 
@@ -152,13 +148,18 @@ pnpm run test:cli
 pnpm run test:tui
 ```
 
-### Python 基线
+### legacy Python 基线
 
 ```bash
-pnpm run baseline:python
+pnpm run legacy:python-baseline
 # 或
 python3 -m unittest discover -s bili_terminal/tests -v
 ```
+
+说明：
+
+- 这条链路只用于历史行为对照
+- 不再属于 TS 主线验收必跑项
 
 ### 多包管理器兼容验证
 
@@ -186,7 +187,8 @@ bun run build
 │   └── index.tsx            # TS 主入口
 ├── test/                    # Vitest 测试
 ├── tools/doctor.mjs         # 环境检查
-├── bili_terminal/           # Python 参考实现 / fallback
+├── tools/smoke.mjs          # Node 主线 smoke
+├── bili_terminal/           # legacy Python 参考实现 / macOS 打包脚本
 ├── docs/                    # 重构路线与清单
 ├── biliterminal             # 智能启动器
 └── .github/workflows/ci.yml # CI
@@ -249,7 +251,11 @@ bilibili-cli-history.json
 ./bili_terminal/build_macos_app.sh
 ```
 
-当前这条桌面打包链路仍然主要打包 Python 参考实现，因此它属于**过渡兼容能力**，不是 TS 主线的最终分发形态。
+当前这条桌面打包链路已经切到 **Node.js + TypeScript payload**：
+
+- `launch.command` 会优先使用应用包内 Node runtime
+- 若包内 runtime 不可用，再回退到系统 Node 20+
+- 应用包内不再复制 `bilibili_cli.py` 等 Python 运行文件
 
 构建产物：
 
@@ -275,7 +281,9 @@ bilibili-cli-history.json
 
 - CLI 与 TUI 会为接口补齐浏览器请求头，降低被风控 412 的概率。
 - 评论接口在权限受限或触发风控时，会尽量转成友好的终端提示。
-- 当前 TS 主线已经具备类型检查、自动测试、构建、CI、跨平台路径适配和多包管理器兼容验证。
+- 当前 TS 主线已经具备类型检查、自动测试、构建、smoke、CI、跨平台路径适配和多包管理器兼容验证。
+- `doctor:full` 默认验证 Node 主线 smoke，不再依赖 Python。
+- `bili_terminal/` 下的 Python 代码保留为 archive/reference，用于行为回溯，不再作为 fallback runtime。
 - `ace` 语义检索如果返回 `401 Unauthorized - Invalid token`，说明当前会话的 ace 授权有问题，不影响本地代码重构主线，但会影响语义搜索效率。
 
 ## 致谢

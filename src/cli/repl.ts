@@ -26,7 +26,17 @@ export async function runRepl(ctx: CommandContext): Promise<void> {
   ctx.out?.log(INTRO);
   try {
     while (true) {
-      const line = (await rl.question("bili> ")).trim();
+      let answer: string;
+      try {
+        answer = await rl.question("bili> ");
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+        if (message.includes("aborted") || message.includes("closed") || message.includes("cancel")) {
+          break;
+        }
+        throw error;
+      }
+      const line = answer.trim();
       if (!line) {
         continue;
       }
