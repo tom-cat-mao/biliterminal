@@ -85,7 +85,7 @@ describe("tui/App", () => {
       expect(app.lastFrame()).toContain("推荐视频 A");
     });
 
-    app.stdin.write("\r");
+    app.stdin.write("\u001B[C");
 
     await waitForAssertion(() => {
       expect(client.video).toHaveBeenCalledWith("BV1xx411c7mu");
@@ -93,7 +93,7 @@ describe("tui/App", () => {
       expect(app.lastFrame()).toContain("详情简介");
     });
 
-    app.stdin.write("\u001B");
+    app.stdin.write("b");
 
     await waitForAssertion(() => {
       expect(app.lastFrame()).toContain("列表 · 2 条");

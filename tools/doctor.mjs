@@ -120,12 +120,18 @@ if (commandExists("gh")) {
   warn("gh", "未找到 gh", "不影响本地开发，但会影响 GitHub Actions 相关自动化");
 }
 
+const preferredRepoCache = path.join(repoRoot, ".cache", "npm");
 const npmCacheResult = run("npm", ["config", "get", "cache"]);
 if (npmCacheResult.status !== 0) {
-  fail("npm_cache", firstLine(npmCacheResult.stderr) || "无法读取 npm cache 配置");
+  if (isPathWritable(preferredRepoCache)) {
+    warn("npm_cache", `无法读取 npm cache 配置，回退检查 ${preferredRepoCache}`, "Windows / CI 上偶发 npm config 兼容问题时，优先保证仓库内 cache 可写");
+  } else {
+    fail("npm_cache", firstLine(npmCacheResult.stderr) || "无法读取 npm cache 配置");
+  }
 } else {
   const npmCache = firstLine(npmCacheResult.stdout);
-  const insideRepo = path.resolve(npmCache).startsWith(repoRoot + path.sep) || path.resolve(npmCache) === path.join(repoRoot, ".cache", "npm");
+  const resolvedCache = path.resolve(npmCache);
+  const insideRepo = resolvedCache.startsWith(repoRoot + path.sep) || resolvedCache === preferredRepoCache;
   const writable = isPathWritable(npmCache);
   if (!insideRepo) {
     warn("npm_cache", npmCache, "建议继续使用仓库内 cache，避免全局 ~/.npm 权限污染");
